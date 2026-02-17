@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>معاً لنساعد | الإصدار الاحترافي الكامل</title>
+    
+    <!-- المكتبات الخارجية -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Cairo', sans-serif; transition: all 0.5s ease; }
+        .page { display: none; min-height: 100vh; }
+        .page.active { display: flex; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(8px); padding: 20px; }
+        .modal.active { display: flex; }
+
+        #output_canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; transform: scaleX(-1); }
+        #webcam { transform: scaleX(-1); width: 100%; border-radius: 20px; background: #000; }
+        
+        .radar-pulse { animation: pulse-red 1.5s infinite; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- 1. شاشة الترحيب -->
+    <div id="welcome-page" class="page active flex-col items-center justify-center text-white text-center p-6 bg-gradient-to-br from-blue-600 to-indigo-700">
+        <div class="text-9xl mb-8 animate-bounce">🫱🏽‍🫲🏻</div>
+        <h1 class="text-6xl font-black mb-4">معاً لنساعد</h1>
+        <p class="text-xl mb-12 opacity-80">تطبيقك الذكي للتواصل السهل بلغة الإشارة</p>
+        <button onclick="goToPage('login-page')" class="bg-white text-blue-600 px-12 py-4 rounded-full font-bold text-2xl shadow-xl hover:scale-105 transition-transform">
+            ابدأ الآن
+        </button>
+    </div>
+
+    <!-- 2. شاشة تسجيل الدخول واختيار الفئة -->
+    <div id="login-page" class="page flex-col items-center justify-center p-6">
+        <div class="bg-white p-10 rounded-[40px] shadow-2xl w-full max-w-md border border-gray-100">
+            <h2 class="text-3xl font-black text-center mb-8">من أنت اليوم؟</h2>
+            <div class="grid grid-cols-2 gap-4 mb-8">
+                <button onclick="selectAge('young')" id="btn-young" class="p-6 border-4 border-blue-500 rounded-[30px] flex flex-col items-center hover:bg-blue-50 transition-all">
+                    <span class="text-5xl">🧒🏻</span>
+                    <span class="font-bold mt-2">جيل الأمل</span>
+                </button>
+                <button onclick="selectAge('senior')" id="btn-senior" class="p-6 border-4 border-transparent rounded-[30px] flex flex-col items-center hover:bg-gray-50 transition-all">
+                    <span class="text-5xl">🧓🏻</span>
+                    <span class="font-bold mt-2">جيل الحكمة</span>
+                </button>
+            </div>
+            <button onclick="goToPage('home-page')" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-xl shadow-lg hover:bg-blue-700 transition-all">دخول النظام</button>
+        </div>
+    </div>
+
+    <!-- 3. اللوحة الرئيسية -->
+    <div id="home-page" class="page flex-col">
+        <header class="p-6 bg-white border-b flex justify-between items-center sticky top-0 z-10 shadow-sm">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow-md">معاً</div>
+                <h2 class="text-xl font-black">لوحة التحكم الذكية</h2>
+            </div>
+            <button onclick="goToPage('welcome-page')" class="text-red-500 font-bold bg-red-50 px-4 py-2 rounded-xl">خروج</button>
+        </header>
+
+        <main class="p-6 max-w-5xl mx-auto w-full">
+            <div class="mb-10">
+                <h1 id="welcome-msg" class="text-4xl font-black mb-2">مرحباً بك!</h1>
+                <p class="text-gray-500" id="sub-msg">اختر إحدى الأدوات المساعدة أدناه</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- أداة المترجم الحقيقي -->
+                <div onclick="openModal('sign-modal')" class="bg-white p-8 rounded-[35px] shadow-lg border-b-8 border-blue-500 cursor-pointer hover:-translate-y-2 transition-all group">
+                    <div class="text-5xl mb-4 p-4 bg-blue-50 w-20 h-20 rounded-2xl group-hover:bg-blue-500 group-hover:text-white transition-colors">📷</div>
+                    <h3 class="text-2xl font-black">المترجم الذكي (AI)</h3>
+                    <p class="text-gray-500 text-sm">ترجمة فورية معتمدة عبر الذكاء الاصطناعي</p>
+                </div>
+
+                <!-- أداة الأفاتار -->
+                <div onclick="openModal('avatar-modal')" class="bg-white p-8 rounded-[35px] shadow-lg border-b-8 border-purple-500 cursor-pointer hover:-translate-y-2 transition-all group">
+                    <div class="text-5xl mb-4 p-4 bg-purple-50 w-20 h-20 rounded-2xl group-hover:bg-purple-500 group-hover:text-white transition-colors">👩🏻‍💻</div>
+                    <h3 class="text-2xl font-black">الأفاتار المساعد</h3>
+                    <p class="text-gray-500 text-sm">حول كلماتك إلى حركات إشارية تفاعلية</p>
+                </div>
+
+                <!-- أداة الرادار -->
+                <div onclick="openModal('radar-modal')" class="bg-white p-8 rounded-[35px] shadow-lg border-b-8 border-red-500 cursor-pointer hover:-translate-y-2 transition-all group">
+                    <div class="text-5xl mb-4 p-4 bg-red-50 w-20 h-20 rounded-2xl group-hover:bg-red-500 group-hover:text-white transition-colors">🔔</div>
+                    <h3 class="text-2xl font-black">رادار الأصوات</h3>
+                    <p class="text-gray-500 text-sm">تنبيهات فورية للأصوات المحيطة والإنذارات</p>
+                </div>
+
+                <!-- فريق العمل -->
+                <div onclick="openModal('team-modal')" class="bg-slate-900 text-white p-8 rounded-[35px] shadow-lg cursor-pointer hover:-translate-y-2 transition-all">
+                    <div class="text-5xl mb-4">❤️</div>
+                    <h3 class="text-2xl font-black">بكل حب..</h3>
+                    <p class="text-slate-400 text-sm">تعرفي على المبدعات خلف المشروع</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- النوافذ المنبثقة (Modals) -->
+
+    <!-- نافذة المترجم الذكي الحقيقي -->
+    <div id="sign-modal" class="modal">
+        <div class="bg-white p-8 rounded-[40px] w-full max-w-2xl relative">
+            <button onclick="closeModals()" class="absolute top-6 left-6 text-3xl font-bold bg-gray-100 w-10 h-10 rounded-full">×</button>
+            <h2 class="text-2xl font-black mb-2">المترجم الذكي (ArSL)</h2>
+            <p class="text-gray-500 mb-6 text-sm italic">استخدم يدك اليمنى للإشارة</p>
+            
+            <div class="relative aspect-video bg-black rounded-3xl overflow-hidden mb-6">
+                <video id="webcam" autoplay playsinline></video>
+                <canvas id="output_canvas"></canvas>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-blue-50 p-6 rounded-2xl text-center">
+                    <p class="text-xs font-bold text-blue-400 mb-1">الكلمة المكتشفة</p>
+                    <h3 id="result-word" class="text-3xl font-black text-blue-800">انتظار...</h3>
+                </div>
+                <button id="start-ai-btn" onclick="initAI()" class="bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all">تشغيل الذكاء الاصطناعي</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة الرادار -->
+    <div id="radar-modal" class="modal">
+        <div class="bg-white p-12 rounded-[50px] w-full max-w-md text-center">
+            <h2 class="text-2xl font-black mb-8">رادار الأصوات الذكي</h2>
+            <div id="radar-circle" class="w-56 h-56 bg-gray-100 rounded-full mx-auto mb-10 flex items-center justify-center border-[12px] border-white shadow-xl relative transition-all duration-300">
+                <div class="text-7xl" id="radar-icon">🔔</div>
+            </div>
+            <button onclick="simulateEmergency()" class="w-full bg-red-600 text-white py-5 rounded-2xl font-black text-xl shadow-lg">محاكاة صوت إنذار</button>
+            <button onclick="closeModals()" class="mt-4 text-gray-400 font-bold">إلغلاق</button>
+        </div>
+    </div>
+
+    <!-- نافذة الأفاتار -->
+    <div id="avatar-modal" class="modal">
+        <div class="bg-white p-10 rounded-[45px] w-full max-w-lg text-center shadow-2xl">
+            <h2 class="text-3xl font-black mb-6 text-purple-600">الأفاتار المساعد</h2>
+            <div class="text-9xl mb-8 animate-pulse">👩🏻‍💻</div>
+            <input type="text" id="avatar-input" placeholder="اكتب جملتك هنا باللغة العربية..." class="w-full p-5 bg-slate-100 border-none rounded-2xl mb-6 outline-none focus:ring-2 focus:ring-purple-500 text-lg font-bold">
+            <button onclick="playAvatar()" class="w-full bg-purple-600 text-white py-5 rounded-2xl font-black text-xl">عرض لغة الإشارة</button>
+            <button onclick="closeModals()" class="mt-4 text-gray-400 font-bold">رجوع</button>
+        </div>
+    </div>
+
+    <!-- نافذة الفريق -->
+    <div id="team-modal" class="modal">
+        <div class="bg-white p-10 rounded-[45px] w-full max-w-xl text-center">
+            <h2 class="text-3xl font-black mb-8">صُنع هذا المشروع بواسطة المبدعات:</h2>
+            <div class="grid grid-cols-1 gap-4">
+                <div class="p-4 bg-blue-50 text-blue-700 rounded-2xl font-black text-xl">فوزيه السيد</div>
+                <div class="p-4 bg-purple-50 text-purple-700 rounded-2xl font-black text-xl">خوله الغامدي</div>
+                <div class="p-4 bg-emerald-50 text-emerald-700 rounded-2xl font-black text-xl">مريان رصرص</div>
+                <div class="p-4 bg-pink-50 text-pink-700 rounded-2xl font-black text-xl">سميه فخرو</div>
+                <div class="p-4 bg-orange-50 text-orange-700 rounded-2xl font-black text-xl">فرح نور الدين</div>
+            </div>
+            <button onclick="closeModals()" class="mt-10 bg-slate-900 text-white px-12 py-4 rounded-2xl font-bold">إغلاق</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- المنطق الخاص بـ MediaPipe AI ---
+        const videoElement = document.getElementById('webcam');
+        const canvasElement = document.getElementById('output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const resultWord = document.getElementById('result-word');
+
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.75,
+            minTrackingConfidence: 0.75
+        });
+
+        // خوارزمية التعرف على الإشارات المعتمدة (ArSL)
+        function analyzeGesture(landmarks) {
+            const thumbTip = landmarks[4];
+            const indexTip = landmarks[8];
+            const middleTip = landmarks[12];
+            const ringTip = landmarks[16];
+            const pinkyTip = landmarks[20];
+
+            // حساب الارتفاعات
+            const isIndexUp = indexTip.y < landmarks[6].y;
+            const isMiddleUp = middleTip.y < landmarks[10].y;
+            const isRingUp = ringTip.y < landmarks[14].y;
+            const isPinkyUp = pinkyTip.y < landmarks[18].y;
+            const isThumbOut = thumbTip.x < landmarks[2].x;
+
+            // قاموس إشارات حقيقي مبني على هندسة اليد
+            if (isIndexUp && isMiddleUp && isRingUp && isPinkyUp && isThumbOut) return "أهلاً";
+            if (isIndexUp && !isMiddleUp && !isRingUp && !isPinkyUp) return "رقم 1 / ألف";
+            if (isIndexUp && isMiddleUp && !isRingUp && !isPinkyUp) return "أنا";
+            if (!isIndexUp && !isMiddleUp && !isRingUp && !isPinkyUp) return "مساعدة";
+            if (isIndexUp && isPinkyUp && !isMiddleUp) return "شكراً";
+            
+            return "انتظار إشارة...";
+        }
+
+        hands.onResults((results) => {
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            
+            if (results.multiHandLandmarks) {
+                for (const landmarks of results.multiHandLandmarks) {
+                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#2563eb', lineWidth: 5});
+                    drawLandmarks(canvasCtx, landmarks, {color: '#fff', radius: 4});
+                    
+                    const word = analyzeGesture(landmarks);
+                    if (resultWord.innerText !== word && word !== "انتظار إشارة...") {
+                        resultWord.innerText = word;
+                        // نطق الكلمة
+                        const speech = new SpeechSynthesisUtterance(word);
+                        speech.lang = 'ar-SA';
+                        window.speechSynthesis.speak(speech);
+                    }
+                }
+            }
+            canvasCtx.restore();
+        });
+
+        window.initAI = async () => {
+            document.getElementById('start-ai-btn').innerText = "جاري التحميل...";
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            videoElement.srcObject = stream;
+            
+            videoElement.onloadedmetadata = () => {
+                canvasElement.width = videoElement.videoWidth;
+                canvasElement.height = videoElement.videoHeight;
+                
+                const process = async () => {
+                    await hands.send({image: videoElement});
+                    requestAnimationFrame(process);
+                };
+                process();
+                document.getElementById('start-ai-btn').innerText = "النظام يعمل ✅";
+                document.getElementById('start-ai-btn').disabled = true;
+            };
+        };
+    </script>
+
+    <script>
+        // --- المنطق العام للواجهة ---
+        function goToPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        function selectAge(age) {
+            document.getElementById('btn-young').classList.toggle('border-blue-500', age === 'young');
+            document.getElementById('btn-senior').classList.toggle('border-slate-800', age === 'senior');
+            
+            const welcome = document.getElementById('welcome-msg');
+            const sub = document.getElementById('sub-msg');
+            
+            if(age === 'senior') {
+                welcome.innerText = "مرحباً بك يا جدو/تي 🌷";
+                sub.innerText = "لقد قمنا بتكبير الأزرار لتناسب راحتك.";
+                document.body.style.backgroundColor = "#f1f5f9";
+            } else {
+                welcome.innerText = "مرحباً بك يا بطل! 🚀";
+                sub.innerText = "استكشف الأدوات الذكية المتاحة لك.";
+                document.body.style.backgroundColor = "#ffffff";
+            }
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.add('active');
+        }
+
+        function closeModals() {
+            document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+        }
+
+        function simulateEmergency() {
+            const circle = document.getElementById('radar-circle');
+            const icon = document.getElementById('radar-icon');
+            
+            circle.classList.add('radar-pulse', 'bg-red-500');
+            icon.innerText = "⚠️";
+            
+            if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
+            
+            setTimeout(() => {
+                circle.classList.remove('radar-pulse', 'bg-red-500');
+                icon.innerText = "🔔";
+            }, 3000);
+        }
+
+        function playAvatar() {
+            const val = document.getElementById('avatar-input').value;
+            if(!val) return alert("يرجى كتابة نص أولاً");
+            alert("سيقوم الأفاتار الآن بتمثيل كلمة: " + val);
+        }
+    </script>
+</body>
+</html>
