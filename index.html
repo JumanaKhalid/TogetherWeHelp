@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>معاً لنساعد | الإصدار الاحترافي</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #f1f5f9; transition: all 0.3s; }
+        .page { display: none; min-height: 100vh; }
+        .page.active { display: flex; animation: slideUp 0.4s ease; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.98); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(15px); padding: 20px; }
+        .modal.active { display: flex; }
+
+        /* تذبذب الرادار */
+        .radar-wave {
+            position: absolute;
+            border: 3px solid #ef4444;
+            border-radius: 50%;
+            animation: ripple 2s linear infinite;
+        }
+        @keyframes ripple {
+            0% { width: 100px; height: 100px; opacity: 1; }
+            100% { width: 400px; height: 400px; opacity: 0; }
+        }
+
+        .emergency-flash { animation: flash-red 0.5s infinite; }
+        @keyframes flash-red { 0%, 100% { background-color: #f1f5f9; } 50% { background-color: #fee2e2; } }
+
+        /* أنيميشن الأفاتار */
+        .finger { transition: all 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55); transform-origin: bottom center; }
+        .hand-move { transition: transform 0.6s ease-in-out; }
+        
+        .eye-blink {
+            animation: blink 4s infinite;
+            transform-origin: center 72px;
+        }
+        @keyframes blink {
+            0%, 96%, 98%, 100% { transform: scaleY(1); }
+            97%, 99% { transform: scaleY(0.1); }
+        }
+    </style>
+</head>
+<body id="main-body">
+
+    <!-- الواجهة الرئيسية -->
+    <div id="home" class="page active flex-col">
+        <header class="p-6 bg-white shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-4">
+                <div class="bg-gradient-to-br from-blue-600 to-indigo-700 p-3 rounded-2xl text-white shadow-lg">🤟</div>
+                <div>
+                    <h1 class="text-2xl font-black text-slate-800">معاً لنساعد</h1>
+                    <p class="text-xs text-slate-500 font-bold">بإشراف المعلمة: أحلام السالمي</p>
+                </div>
+            </div>
+            <div class="text-right text-sm">
+                <p class="font-bold text-slate-700">تنفيذ: <span class="text-blue-600">فوزية السيد وخولة الغامدي</span></p>
+                <p class="text-slate-500 text-xs">مساعدة خارجية: مريان رصرص وسمية فخرو</p>
+            </div>
+        </header>
+
+        <main class="p-8 max-w-6xl mx-auto w-full grid grid-cols-1 md:grid-cols-3 gap-8 mt-10">
+            <!-- رادار الأصوات -->
+            <div onclick="openModal('radar-modal')" class="bg-white p-10 rounded-[50px] shadow-xl hover:shadow-2xl transition-all cursor-pointer border-b-8 border-red-500 group">
+                <div class="text-6xl mb-6 group-hover:scale-110 transition-transform">🔔</div>
+                <h3 class="text-2xl font-black">رادار الأصوات</h3>
+                <p class="text-slate-500 mt-2 italic text-sm">تنبيهات حساسة جداً للأصوات المحيطة (بوق، صراخ، جرس)</p>
+            </div>
+
+            <!-- الأفاتار المترجم -->
+            <div onclick="openModal('avatar-modal')" class="bg-white p-10 rounded-[50px] shadow-xl hover:shadow-2xl transition-all cursor-pointer border-b-8 border-purple-600 group">
+                <div class="text-6xl mb-6 group-hover:scale-110 transition-transform">🤖</div>
+                <h3 class="text-2xl font-black">الأفاتار الذكي</h3>
+                <p class="text-slate-500 mt-2 italic text-sm">مترجم فوري يحول النص إلى حركات إشارية متقنة</p>
+            </div>
+
+            <!-- مترجم اليد -->
+            <div onclick="openModal('cam-modal')" class="bg-white p-10 rounded-[50px] shadow-xl hover:shadow-2xl transition-all cursor-pointer border-b-8 border-blue-600 group">
+                <div class="text-6xl mb-6 group-hover:scale-110 transition-transform">✋</div>
+                <h3 class="text-2xl font-black">مترجم اليد (AI)</h3>
+                <p class="text-slate-500 mt-2 italic text-sm">يفهم إشاراتك ويحولها لنص وصوت مسموع</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- نافذة الرادار -->
+    <div id="radar-modal" class="modal">
+        <div class="bg-white p-10 rounded-[60px] w-full max-w-lg text-center shadow-2xl relative overflow-hidden">
+            <button onclick="closeModals()" class="absolute top-8 left-8 text-3xl font-bold text-slate-300">×</button>
+            <h2 class="text-3xl font-black text-red-600 mb-6">مراقب الأصوات الآمن</h2>
+            
+            <div id="radar-visual" class="relative w-64 h-64 mx-auto mb-8 bg-slate-50 rounded-full flex items-center justify-center border-8 border-white shadow-inner">
+                <div id="mic-icon" class="text-7xl z-10 transition-transform duration-100">👂</div>
+                <div id="waves-container"></div>
+            </div>
+
+            <div class="w-full bg-slate-100 h-3 rounded-full mb-8">
+                <div id="db-bar" class="h-full bg-red-500 w-0 transition-all duration-75"></div>
+            </div>
+
+            <button onclick="toggleRadar()" id="radar-btn" class="w-full py-6 bg-red-600 text-white rounded-3xl font-black text-2xl shadow-lg active:scale-95 transition-all">بدء المراقبة</button>
+        </div>
+    </div>
+
+    <!-- نافذة الأفاتار (محدثة ومطورة) -->
+    <div id="avatar-modal" class="modal">
+        <div class="bg-white p-8 rounded-[60px] w-full max-w-4xl shadow-2xl relative">
+            <button onclick="closeModals()" class="absolute top-8 left-8 text-3xl font-bold text-slate-300">×</button>
+            <div class="flex flex-col md:flex-row gap-8 items-center">
+                
+                <!-- رسم الأفاتار المطور -->
+                <div class="w-full md:w-1/2 bg-gradient-to-t from-blue-50 to-slate-100 rounded-[45px] p-6 h-96 flex justify-center items-end border-4 border-slate-50 shadow-inner overflow-hidden">
+                    <svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-xl">
+                        <defs>
+                            <linearGradient id="skin" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="#FFDBAC" />
+                                <stop offset="100%" stop-color="#E0AC69" />
+                            </linearGradient>
+                            <linearGradient id="suit" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#1e293b" />
+                                <stop offset="100%" stop-color="#0f172a" />
+                            </linearGradient>
+                        </defs>
+                        
+                        <!-- الجسم / الأكتاف -->
+                        <path d="M20,200 Q100,110 180,200" fill="url(#suit)" />
+                        
+                        <!-- الرأس -->
+                        <circle cx="100" cy="80" r="45" fill="url(#skin)" />
+                        
+                        <!-- الشعر -->
+                        <path d="M55,80 Q100,10 145,80 Q100,35 55,80" fill="#333" />
+                        
+                        <!-- العيون (مع الرمش) -->
+                        <g class="eye-blink">
+                            <circle cx="82" cy="72" r="5" fill="#222" />
+                            <circle cx="118" cy="72" r="5" fill="#222" />
+                            <!-- لمعة العين -->
+                            <circle cx="80" cy="70" r="2" fill="#fff" />
+                            <circle cx="116" cy="70" r="2" fill="#fff" />
+                        </g>
+
+                        <!-- الفم -->
+                        <path id="av-mouth" d="M85,95 Q100,105 115,95" stroke="#222" stroke-width="2.5" stroke-linecap="round" fill="none" />
+
+                        <!-- اليد المطورة -->
+                        <g id="av-hand-group" class="hand-move" transform="translate(100, 180)">
+                            <path d="M-22,0 Q0,-15 22,0 L18,40 L-18,40 Z" fill="url(#skin)" />
+                            <!-- الأصابع -->
+                            <rect id="f-index" class="finger" x="-20" y="-40" width="8" height="40" rx="4" fill="url(#skin)" />
+                            <rect id="f-middle" class="finger" x="-8" y="-45" width="8" height="45" rx="4" fill="url(#skin)" />
+                            <rect id="f-ring" class="finger" x="4" y="-42" width="8" height="42" rx="4" fill="url(#skin)" />
+                            <rect id="f-pinky" class="finger" x="16" y="-35" width="8" height="35" rx="4" fill="url(#skin)" />
+                            <rect id="f-thumb" class="finger" x="24" y="-12" width="28" height="9" rx="4.5" fill="url(#skin)" transform-origin="24 0" />
+                        </g>
+                    </svg>
+                </div>
+
+                <!-- لوحة التحكم -->
+                <div class="w-full md:w-1/2">
+                    <h2 class="text-3xl font-black text-purple-700 mb-2">الأفاتار المترجم</h2>
+                    <p class="text-slate-400 mb-6">جرب: (أحبك، شكراً، ماء، كيف حالك، صلاة)</p>
+                    <input type="text" id="av-input" placeholder="اكتب كلمتك هنا..." class="w-full p-6 bg-slate-100 rounded-3xl mb-4 border-none outline-none focus:ring-4 focus:ring-purple-200 text-2xl font-black text-center">
+                    <button onclick="animateAvatar()" class="w-full py-6 bg-purple-600 text-white rounded-3xl font-black text-xl shadow-lg hover:scale-105 transition-transform">ترجمة الحركة</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة الكاميرا (تمت إضافة الذكاء الاصطناعي الفعلي) -->
+    <div id="cam-modal" class="modal">
+        <div class="bg-white p-8 rounded-[60px] w-full max-w-2xl text-center relative shadow-2xl">
+            <button onclick="closeModals()" class="absolute top-8 left-8 text-3xl font-bold text-slate-300 z-50">×</button>
+            <h2 class="text-2xl font-black mb-4">الترجمة عبر الكاميرا (تعمل بالذكاء الاصطناعي)</h2>
+            <div class="relative aspect-video bg-black rounded-[40px] overflow-hidden border-8 border-slate-100 shadow-xl">
+                <video id="v-input" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
+                <canvas id="c-output" class="absolute inset-0 w-full h-full transform -scale-x-100"></canvas>
+            </div>
+            <div id="gesture-res" class="mt-6 p-6 bg-slate-50 rounded-3xl text-3xl font-black text-slate-400 border-2 border-slate-100 transition-colors duration-300">
+                انتظار إشارة اليد...
+            </div>
+            <button id="start-cam-btn" onclick="initCamera()" class="w-full mt-4 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-colors">بدء التحليل والترجمة</button>
+        </div>
+    </div>
+
+    <script>
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModals() { 
+            document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+            if(window.aCtx) window.aCtx.close();
+            document.getElementById('main-body').classList.remove('emergency-flash');
+        }
+
+        // --- محرك رادار الأصوات ---
+        let radarActive = false;
+        async function toggleRadar() {
+            if(radarActive) { location.reload(); return; }
+            radarActive = true;
+            document.getElementById('radar-btn').innerText = "الرادار يعمل الآن (اضغط للإيقاف)";
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                window.aCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const analyser = window.aCtx.createAnalyser();
+                const source = window.aCtx.createMediaStreamSource(stream);
+                source.connect(analyser);
+                analyser.fftSize = 128;
+                const buffer = new Uint8Array(analyser.frequencyBinCount);
+
+                const icon = document.getElementById('mic-icon');
+                const bar = document.getElementById('db-bar');
+                const container = document.getElementById('waves-container');
+                const body = document.getElementById('main-body');
+
+                function loop() {
+                    analyser.getByteFrequencyData(buffer);
+                    let sum = 0; for(let x of buffer) sum += x;
+                    let vol = sum / buffer.length;
+
+                    bar.style.width = Math.min(vol * 2.5, 100) + "%";
+                    icon.style.transform = `scale(${1 + vol/100})`;
+
+                    if(vol > 20) { 
+                        icon.innerText = "🚨";
+                        body.classList.add('emergency-flash');
+                        const w = document.createElement('div');
+                        w.className = 'radar-wave';
+                        container.appendChild(w);
+                        setTimeout(() => w.remove(), 2000);
+                        if(navigator.vibrate) navigator.vibrate(200);
+                    } else {
+                        icon.innerText = "👂";
+                        body.classList.remove('emergency-flash');
+                    }
+                    if(radarActive) requestAnimationFrame(loop);
+                }
+                loop();
+            } catch(e) { alert("يرجى السماح بالوصول للمايكروفون"); }
+        }
+
+        // --- محرك الأفاتار (مطور) ---
+        let resetTimeout;
+        function animateAvatar() {
+            clearTimeout(resetTimeout);
+            const input = document.getElementById('av-input').value.trim();
+            const hand = document.getElementById('av-hand-group');
+            const mouth = document.getElementById('av-mouth');
+            const fngs = ['f-index', 'f-middle', 'f-ring', 'f-pinky', 'f-thumb'];
+
+            // تصفير الوضعية
+            fngs.forEach(f => {
+                const el = document.getElementById(f);
+                el.style.transform = "scaleY(1) rotate(0deg)";
+            });
+            hand.style.transform = "translate(100px, 180px) rotate(0deg)"; // مكان اليد الافتراضي في الأسفل
+
+            // تطبيق الحركة بناءً على الكلمة
+            if(input.includes("أحبك")) {
+                document.getElementById('f-middle').style.transform = "scaleY(0.2)";
+                document.getElementById('f-ring').style.transform = "scaleY(0.2)";
+                hand.style.transform = "translate(100px, 120px) rotate(-15deg)";
+            } else if(input.includes("شكرا") || input.includes("شكراً")) {
+                hand.style.transform = "translate(100px, 100px)"; // يرفع يده للأعلى
+                setTimeout(() => hand.style.transform = "translate(100px, 140px)", 500); // ينزلها قليلاً كحركة شكر
+            } else if(input.includes("ماء")) {
+                document.getElementById('f-index').style.transform = "scaleY(0.2)";
+                document.getElementById('f-middle').style.transform = "scaleY(0.2)";
+                document.getElementById('f-ring').style.transform = "scaleY(0.2)";
+                hand.style.transform = "translate(100px, 110px)"; // يقربها من فمه
+            } else if(input.includes("حالك") || input.includes("كيف")) {
+                document.getElementById('f-thumb').style.transform = "rotate(-45deg)";
+                hand.style.transform = "translate(120px, 130px)"; // يرفعها ويميلها
+            } else if(input.includes("صلاة")) {
+                hand.style.transform = "translate(100px, 110px) rotate(-90deg)"; // يميل اليد أفقياً
+            } else {
+                // إذا لم يتعرف على الكلمة، يلوح بيده
+                hand.style.transform = "translate(100px, 120px) rotate(15deg)";
+            }
+
+            // تحريك الفم والنطق
+            mouth.setAttribute('d', 'M85,100 Q100,115 115,100'); // فم مفتوح
+            const s = new SpeechSynthesisUtterance(input || "لم أفهم الكلمة");
+            s.lang = 'ar-SA';
+            s.onend = () => mouth.setAttribute('d', 'M85,95 Q100,105 115,95'); // إغلاق الفم
+            window.speechSynthesis.speak(s);
+
+            // إعادة اليد لوضعها الطبيعي بعد انتهاء الترجمة بـ 3 ثواني
+            resetTimeout = setTimeout(() => {
+                fngs.forEach(f => document.getElementById(f).style.transform = "scaleY(1) rotate(0deg)");
+                hand.style.transform = "translate(100px, 180px) rotate(0deg)";
+            }, 3000);
+        }
+
+        // --- مترجم الكاميرا AI (تم إصلاحه وتطويره) ---
+        let camActive = false;
+        async function initCamera() {
+            if(camActive) return;
+            camActive = true;
+            document.getElementById('start-cam-btn').innerText = "جاري تشغيل الكاميرا...";
+            
+            const video = document.getElementById('v-input');
+            const canvas = document.getElementById('c-output');
+            const ctx = canvas.getContext('2d');
+            const res = document.getElementById('gesture-res');
+
+            const hands = new Hands({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+            hands.setOptions({
+                maxNumHands: 1, 
+                modelComplexity: 1,
+                minDetectionConfidence: 0.6,
+                minTrackingConfidence: 0.6
+            });
+            
+            hands.onResults(results => {
+                ctx.save();
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                if(results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                    const landmarks = results.multiHandLandmarks[0];
+                    
+                    // رسم المفاصل والخطوط بشكل سليم!
+                    window.drawConnectors(ctx, landmarks, window.HAND_CONNECTIONS, {color: '#ffffff', lineWidth: 4});
+                    window.drawLandmarks(ctx, landmarks, {color: '#3b82f6', lineWidth: 2, radius: 4});
+                    
+                    // --- خوارزمية التعرف على الحركات (AI Logic) ---
+                    // نحسب إذا كانت الأصابع مفتوحة أو مغلقة بمقارنة النقاط العليا والسفلى
+                    const isIndexOpen = landmarks[8].y < landmarks[6].y;
+                    const isMiddleOpen = landmarks[12].y < landmarks[10].y;
+                    const isRingOpen = landmarks[16].y < landmarks[14].y;
+                    const isPinkyOpen = landmarks[20].y < landmarks[18].y;
+
+                    let gesture = "أنا أراقب يدك...";
+                    res.className = "mt-6 p-6 rounded-3xl text-3xl font-black transition-colors duration-300 bg-blue-100 text-blue-800 border-2 border-blue-200";
+
+                    // تحليل الشكل لإخراج الكلمة
+                    if (isIndexOpen && isMiddleOpen && isRingOpen && isPinkyOpen) {
+                        gesture = "👋 مرحباً (سلام)";
+                    } else if (!isIndexOpen && !isMiddleOpen && !isRingOpen && !isPinkyOpen) {
+                        gesture = "✊ قبضة (توقف/قوة)";
+                    } else if (isIndexOpen && isMiddleOpen && !isRingOpen && !isPinkyOpen) {
+                        gesture = "✌️ علامة النصر (السلام)";
+                    } else if (isIndexOpen && !isMiddleOpen && !isRingOpen && !isPinkyOpen) {
+                        gesture = "☝️ واحد (انتباه)";
+                    } else if (!isIndexOpen && !isMiddleOpen && !isRingOpen && isPinkyOpen) {
+                        gesture = "🤙 رائع (ممتاز)";
+                    }
+
+                    res.innerText = gesture;
+                } else {
+                    res.innerText = "انتظار إشارة اليد...";
+                    res.className = "mt-6 p-6 bg-slate-50 rounded-3xl text-3xl font-black text-slate-400 border-2 border-slate-100 transition-colors duration-300";
+                }
+                ctx.restore();
+            });
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({video: true});
+                video.srcObject = stream;
+                
+                // تحديث مقاسات الكانفاس لتتطابق مع الفيديو
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                };
+
+                const cam = new Camera(video, {
+                    onFrame: async () => {
+                        await hands.send({image: video});
+                    },
+                    width: 640,
+                    height: 480
+                });
+                cam.start();
+                document.getElementById('start-cam-btn').innerText = "الكاميرا تعمل بنجاح 🟢";
+                document.getElementById('start-cam-btn').classList.replace('bg-blue-600', 'bg-green-500');
+            } catch (err) {
+                alert("تعذر الوصول للكاميرا، الرجاء إعطاء الصلاحية.");
+                document.getElementById('start-cam-btn').innerText = "فشل تشغيل الكاميرا";
+            }
+        }
+    </script>
+</body>
+</html>
